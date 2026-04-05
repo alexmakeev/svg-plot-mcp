@@ -1,0 +1,23 @@
+services:
+  svg-plot-mcp:
+    build: .
+    container_name: svg-plot-mcp
+    ports:
+      - "${PORT:-17004}:17004"
+    environment:
+      - NODE_ENV=production
+      - TRANSPORT=sse
+      - PORT=17004
+    volumes:
+      - svg-temp:/app/temp
+    networks:
+      - dokploy-network
+    init: true
+    restart: unless-stopped
+
+volumes:
+  svg-temp:
+
+networks:
+  dokploy-network:
+    external: true
