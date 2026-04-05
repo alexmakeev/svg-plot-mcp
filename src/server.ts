@@ -87,7 +87,7 @@ const server = new McpServer({
 
 server.tool(
   'render_diagram',
-  'Render Mermaid diagrams to SVG. Two modes: (1) Single diagram: {name, mermaid} — backward compatible with pdf-reporter-mcp. (2) Batch: {diagrams: [{name, mermaid}, ...]}. Always returns array of {name, svg}. Uses pastel color theme with transparent background. Use LIGHT/PASTEL background fills with BLACK text for best results.',
+  'Render Mermaid diagrams to SVG. Two modes: (1) Single diagram: {name, mermaid} — backward compatible with pdf-reporter-mcp. (2) Batch: {diagrams: [{name, mermaid}, ...]}. Always returns JSON array of {name, svg} objects. The document uses a pastel color theme with transparent background. When composing Mermaid diagrams, use LIGHT/PASTEL background fills with BLACK text — never use dark fills with white text. The theme primary color is Royal Blue (#4169E1). Choose pastel shades of blue, green, amber, violet etc. for node fills. Example Mermaid styles: style A fill:#E0E7F5,color:#1a1a1a,stroke:#4169E1',
   RenderDiagramInputSchema.shape,
   async (input) => {
     const tempDir = await mkdtemp(join(tmpdir(), 'svg-plot-'));
