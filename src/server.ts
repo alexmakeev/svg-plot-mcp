@@ -73,55 +73,62 @@ function buildErrorResponse(error: unknown): {
 }
 
 // -----------------------------------------------------------------------------
-// MCP Server Setup
+// MCP Server Factory
 // -----------------------------------------------------------------------------
 
-const server = new McpServer({
-  name: 'svg-plot',
-  version: '1.0.0',
-});
+function createMcpServer(): McpServer {
+  const server = new McpServer({
+    name: 'svg-plot',
+    version: '1.0.0',
+  });
 
-// -----------------------------------------------------------------------------
-// Tool: render_diagram
-// -----------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Tool: render_diagram
+  // ---------------------------------------------------------------------------
 
-server.tool(
-  'render_diagram',
-  'Render Mermaid diagrams to SVG. Two modes: (1) Single diagram: {name, mermaid} — backward compatible with pdf-reporter-mcp. (2) Batch: {diagrams: [{name, mermaid}, ...]}. Always returns JSON array of {name, svg} objects. The document uses a pastel color theme with transparent background. When composing Mermaid diagrams, use LIGHT/PASTEL background fills with BLACK text — never use dark fills with white text. The theme primary color is Royal Blue (#4169E1). Choose pastel shades of blue, green, amber, violet etc. for node fills. Example Mermaid styles: style A fill:#E0E7F5,color:#1a1a1a,stroke:#4169E1',
-  RenderDiagramInputSchema.shape,
-  async (input) => {
-    const tempDir = await mkdtemp(join(tmpdir(), 'svg-plot-'));
-    try {
-      // Normalize input: single diagram {name, mermaid} or batch {diagrams: [...]}
-      let diagrams: Array<{ name: string; mermaid: string }>;
+  server.tool(
+    'render_diagram',
+    'Render Mermaid diagrams to SVG. Two modes: (1) Single diagram: {name, mermaid} — backward compatible with pdf-reporter-mcp. (2) Batch: {diagrams: [{name, mermaid}, ...]}. Always returns JSON array of {name, svg} objects. The document uses a pastel color theme with transparent background. When composing Mermaid diagrams, use LIGHT/PASTEL background fills with BLACK text — never use dark fills with white text. The theme primary color is Royal Blue (#4169E1). Choose pastel shades of blue, green, amber, violet etc. for node fills. Example Mermaid styles: style A fill:#E0E7F5,color:#1a1a1a,stroke:#4169E1',
+    RenderDiagramInputSchema.shape,
+    async (input) => {
+      const tempDir = await mkdtemp(join(tmpdir(), 'svg-plot-'));
+      try {
+        // Normalize input: single diagram {name, mermaid} or batch {diagrams: [...]}
+        let diagrams: Array<{ name: string; mermaid: string }>;
 
-      if (input.diagrams && input.diagrams.length > 0) {
-        diagrams = input.diagrams;
-      } else if (input.name && input.mermaid) {
-        diagrams = [{ name: input.name, mermaid: input.mermaid }];
-      } else {
-        throw new SvgPlotError(
-          'VALIDATION_ERROR',
-          'Provide either {name, mermaid} for a single diagram or {diagrams: [...]} for batch rendering',
-        );
+        if (input.diagrams && input.diagrams.length > 0) {
+          diagrams = input.diagrams;
+        } else if (input.name && input.mermaid) {
+          diagrams = [{ name: input.name, mermaid: input.mermaid }];
+        } else {
+          throw new SvgPlotError(
+            'VALIDATION_ERROR',
+            'Provide either {name, mermaid} for a single diagram or {diagrams: [...]} for batch rendering',
+          );
+        }
+
+        const results = await renderDiagrams(diagrams, tempDir);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(results),
+            },
+          ],
+        };
+      } catch (error) {
+        return buildErrorResponse(error);
+      } finally {
+        await rm(tempDir, { recursive: true, force: true }).catch(() => {});
       }
+    },
+  );
 
-      const results = await renderDiagrams(diagrams, tempDir);
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(results),
-          },
-        ],
-      };
-    } catch (error) {
-      return buildErrorResponse(error);
-    } finally {
-      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
-    }
-  },
-);
+  return server;
+}
+
+// Singleton for stdio transport (only one connection possible)
+const stdioServer = createMcpServer();
 
 // -----------------------------------------------------------------------------
 // Main Entry Point
@@ -129,7 +136,7 @@ server.tool(
 
 async function startStdio(): Promise<void> {
   const transport = new StdioServerTransport();
-  await server.connect(transport);
+  await stdioServer.connect(transport);
   console.error('SVG Plot MCP server started on stdio');
 }
 
@@ -146,7 +153,8 @@ async function startSse(): Promise<void> {
       res.on('close', () => {
         transports.delete(transport.sessionId);
       });
-      await server.connect(transport);
+      const sessionServer = createMcpServer(); // fresh instance per connection
+      await sessionServer.connect(transport);
       return;
     }
 
