@@ -33,6 +33,10 @@ const RenderDiagramInputSchema = z.object({
     .min(1)
     .describe('Array of diagrams to render (batch mode)')
     .optional(),
+  theme: z
+    .enum(['light', 'dark'])
+    .default('light')
+    .describe('Color scheme for the diagram palette. Use "dark" when embedding in a dark report.'),
 });
 
 // -----------------------------------------------------------------------------
@@ -88,7 +92,7 @@ function createMcpServer(): McpServer {
 
   server.tool(
     'render_diagram',
-    'Render Mermaid diagrams to SVG. Two modes: (1) Single diagram: {name, mermaid} — backward compatible with pdf-reporter-mcp. (2) Batch: {diagrams: [{name, mermaid}, ...]}. Always returns JSON array of {name, svg} objects. The document uses a pastel color theme with transparent background. When composing Mermaid diagrams, use LIGHT/PASTEL background fills with BLACK text — never use dark fills with white text. The theme primary color is Royal Blue (#4169E1). Choose pastel shades of blue, green, amber, violet etc. for node fills. Example Mermaid styles: style A fill:#E0E7F5,color:#1a1a1a,stroke:#4169E1',
+    'Render Mermaid diagrams to SVG. Two modes: (1) Single diagram: {name, mermaid} — backward compatible with pdf-reporter-mcp. (2) Batch: {diagrams: [{name, mermaid}, ...]}. Always returns a JSON array of {name, svg} objects. Set theme:"light" (default) or theme:"dark" to match the report you embed the diagram into — the palette (Royal Blue #4169E1 accent + green/amber/violet family) and text colors are applied automatically for the chosen scheme, and the background is transparent so the diagram inherits the page color. Labels are rendered as positioned SVG text (not HTML foreignObject) and long labels wrap, so diagrams stay stable and un-clipped when printed HTML→PDF. Prefer letting the theme palette style nodes rather than hard-coding per-node fills.',
     RenderDiagramInputSchema.shape,
     async (input) => {
       const tempDir = await mkdtemp(join(tmpdir(), 'svg-plot-'));
@@ -107,7 +111,7 @@ function createMcpServer(): McpServer {
           );
         }
 
-        const results = await renderDiagrams(diagrams, tempDir);
+        const results = await renderDiagrams(diagrams, tempDir, input.theme ?? 'light');
         return {
           content: [
             {

@@ -6,6 +6,9 @@
 // MCP Tool Input/Output
 // -----------------------------------------------------------------------------
 
+/** Color scheme for the rendered diagram palette. */
+export type Theme = 'light' | 'dark';
+
 export interface DiagramInput {
   /** Diagram identifier */
   name: string;
