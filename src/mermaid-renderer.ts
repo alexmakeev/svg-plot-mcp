@@ -9,9 +9,12 @@
 //  * wrappingWidth + padding + spacing -> long node labels wrap instead of being
 //    clipped by a too-tight node box (bug-059).
 //  * Theme-aware palette: a 'light' PerServeX semantic palette and a 'dark'
-//    variant (which Mermaid/PerServeX lack out of the box). The caller picks the
-//    scheme that matches the embedding report, so the diagram is not a bright
-//    card stranded on a dark page (bug-032).
+//    variant (which Mermaid/PerServeX lack out of the box). Background is
+//    always opaque white regardless of palette (see renderSingleDiagram) —
+//    for report embedding, leave theme at its 'light' default; 'dark' is kept
+//    for non-report-embedding use only, NOT for "matching" a dark report page
+//    (that was the bug-032 guidance and is now superseded by the report-SVG
+//    light-authored rule, see mermaid-renderer.ts THEME_VARS comment below).
 // =============================================================================
 
 import { execFile } from 'node:child_process';
@@ -47,8 +50,14 @@ const FLOWCHART = {
 const FONT_FAMILY = 'Segoe UI, Roboto, Helvetica, Arial, sans-serif';
 
 /**
- * Mermaid themeVariables per color scheme. Both use a transparent background so
- * the diagram inherits the embedding report's page color.
+ * Mermaid themeVariables per color scheme. Background is always opaque white
+ * (see renderSingleDiagram's --backgroundColor) — diagrams embedded in reports
+ * must be authored as a LIGHT image regardless of the report's own theme;
+ * report.html applies a CSS invert filter to adapt light-authored SVGs for
+ * dark mode (docs/telegram-html-formatting.md, SVG Diagrams in Reports). A
+ * transparent or dark-authored background here would double-adapt under that
+ * filter and reproduce the black-on-black / unreadable bug it exists to
+ * prevent.
  */
 const THEME_VARS: Record<Theme, Record<string, string>> = {
   light: {
@@ -135,7 +144,7 @@ async function renderSingleDiagram(
         '-o', outputPath,
         '-c', configPath,
         '-p', PUPPETEER_CONFIG_PATH,
-        '--backgroundColor', 'transparent',
+        '--backgroundColor', '#ffffff',
       ],
       { timeout: 30_000 },
     );

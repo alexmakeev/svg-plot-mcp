@@ -36,7 +36,7 @@ const RenderDiagramInputSchema = z.object({
   theme: z
     .enum(['light', 'dark'])
     .default('light')
-    .describe('Color scheme for the diagram palette. Use "dark" when embedding in a dark report.'),
+    .describe('Color scheme for the diagram palette. Leave at default "light" for report embedding — report templates invert light-authored SVGs for dark mode, so "dark" here would double-invert. "dark" is for non-report-embedding use only.'),
 });
 
 // -----------------------------------------------------------------------------
@@ -92,7 +92,7 @@ function createMcpServer(): McpServer {
 
   server.tool(
     'render_diagram',
-    'Render Mermaid diagrams to SVG. Two modes: (1) Single diagram: {name, mermaid} — backward compatible with pdf-reporter-mcp. (2) Batch: {diagrams: [{name, mermaid}, ...]}. Always returns a JSON array of {name, svg} objects. Set theme:"light" (default) or theme:"dark" to match the report you embed the diagram into — the palette (Royal Blue #4169E1 accent + green/amber/violet family) and text colors are applied automatically for the chosen scheme, and the background is transparent so the diagram inherits the page color. Labels are rendered as positioned SVG text (not HTML foreignObject) and long labels wrap, so diagrams stay stable and un-clipped when printed HTML→PDF. Prefer letting the theme palette style nodes rather than hard-coding per-node fills.',
+    'Render Mermaid diagrams to SVG. Two modes: (1) Single diagram: {name, mermaid} — backward compatible with pdf-reporter-mcp. (2) Batch: {diagrams: [{name, mermaid}, ...]}. Always returns a JSON array of {name, svg} objects. Diagrams are always rendered as a LIGHT-authored image — opaque white background + fixed dark colors (Royal Blue #4169E1 accent + green/amber/violet family) — regardless of the report you embed them into. Do NOT set theme:"dark" to match a dark report: report templates apply a CSS invert filter to adapt light-authored SVGs for dark mode, so a dark-authored diagram would double-invert into unreadable/black-on-black output (see docs/telegram-html-formatting.md, SVG Diagrams in Reports). Leave theme at its "light" default for any diagram embedded in an HTML/PDF report. Labels are rendered as positioned SVG text (not HTML foreignObject) and long labels wrap, so diagrams stay stable and un-clipped when printed HTML→PDF. Prefer letting the palette style nodes rather than hard-coding per-node fills.',
     RenderDiagramInputSchema.shape,
     async (input) => {
       const tempDir = await mkdtemp(join(tmpdir(), 'svg-plot-'));
