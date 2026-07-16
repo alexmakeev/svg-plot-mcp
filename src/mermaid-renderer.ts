@@ -125,6 +125,7 @@ async function renderSingleDiagram(
   input: DiagramInput,
   tempDir: string,
   theme: Theme,
+  index: number,
 ): Promise<DiagramOutput> {
   const hash = createHash('md5').update(`${theme}:${input.mermaid}`).digest('hex').slice(0, 8);
   const inputPath = join(tempDir, `${hash}.mmd`);
@@ -136,6 +137,16 @@ async function renderSingleDiagram(
     await writeFile(inputPath, input.mermaid, 'utf-8');
     await writeFile(configPath, buildMermaidConfig(theme), 'utf-8');
 
+    // bug-077: mmdc defaults the SVG root id to the literal "my-svg" for every
+    // render. Embedding 2+ diagrams inline on one HTML page collides their
+    // id-scoped CSS rules and bleeds styling across diagrams. `hash` above is
+    // a per-render md5(theme:mermaid-source) prefix -- unique per DISTINCT
+    // diagram, but two identical diagrams in one `renderDiagrams` call would
+    // still collide on hash alone, so the call-order `index` is appended too:
+    // the combination is unique across every SVG a single render_diagram call
+    // can ever produce, regardless of duplicate content. `svg-` prefix keeps
+    // it a valid CSS identifier (a bare hex hash could start with a digit).
+    const svgId = `svg-${hash}-${index}`;
     const mmdc = join(__dirname, '..', 'node_modules', '.bin', 'mmdc');
     await execFileAsync(
       mmdc,
@@ -145,6 +156,7 @@ async function renderSingleDiagram(
         '-c', configPath,
         '-p', PUPPETEER_CONFIG_PATH,
         '--backgroundColor', '#ffffff',
+        '-I', svgId,
       ],
       { timeout: 30_000 },
     );
@@ -171,8 +183,8 @@ export async function renderDiagrams(
 ): Promise<DiagramOutput[]> {
   const results: DiagramOutput[] = [];
 
-  for (const diagram of diagrams) {
-    const result = await renderSingleDiagram(diagram, tempDir, theme);
+  for (let index = 0; index < diagrams.length; index++) {
+    const result = await renderSingleDiagram(diagrams[index], tempDir, theme, index);
     results.push(result);
   }
 
