@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/server.ts",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@mermaid-js/mermaid-cli": "^11.12.0",

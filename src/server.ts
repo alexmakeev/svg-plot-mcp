@@ -13,6 +13,7 @@ import { z } from 'zod';
 
 import { SvgPlotError } from './types.js';
 import { renderDiagrams } from './mermaid-renderer.js';
+import { handleStatelessMcp } from './mcp-http.js';
 
 // -----------------------------------------------------------------------------
 // Zod Schema for MCP Tool Input Validation
@@ -150,6 +151,11 @@ async function startSse(): Promise<void> {
 
   const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? '/', `http://localhost:${port}`);
+
+    if (url.pathname === '/mcp') {
+      await handleStatelessMcp(req, res, createMcpServer);
+      return;
+    }
 
     if (req.method === 'GET' && url.pathname === '/sse') {
       const transport = new SSEServerTransport('/messages', res);
